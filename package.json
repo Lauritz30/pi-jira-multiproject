@@ -16,10 +16,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/your-github-username/pi-jira-testmanager.git"
+    "url": "https://github.com/Lauritz30/pi-jira-testmanager.git"
   },
   "bugs": {
-    "url": "https://github.com/your-github-username/pi-jira-testmanager/issues"
+    "url": "https://github.com/Lauritz30/pi-jira-testmanager/issues"
   },
   "files": [
     "index.ts",
