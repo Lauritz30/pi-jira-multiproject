@@ -1,0 +1,64 @@
+{
+  "name": "pi-jira-testmanager",
+  "version": "0.1.0",
+  "description": "Jira Cloud (REST API v3) integration for the pi coding agent — JQL search, issues, comments, transitions, filters.",
+  "keywords": [
+    "pi-package",
+    "jira",
+    "jira-cloud",
+    "pi-extension"
+  ],
+  "author": "IFCO Test Management",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22.19.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-github-username/pi-jira-testmanager.git"
+  },
+  "bugs": {
+    "url": "https://github.com/your-github-username/pi-jira-testmanager/issues"
+  },
+  "files": [
+    "index.ts",
+    "src",
+    "prompts",
+    "LICENSE",
+    "README.md"
+  ],
+  "scripts": {
+    "check": "tsc --noEmit",
+    "test": "node --test 'test/**/*.test.ts'",
+    "test:watch": "node --test --watch 'test/**/*.test.ts'"
+  },
+  "dependencies": {
+    "undici": "^7.0.0"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": ">=0.70.0",
+    "@earendil-works/pi-tui": ">=0.70.0",
+    "typebox": ">=1.0.0"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-coding-agent": ">=0.70.0",
+    "@earendil-works/pi-tui": ">=0.70.0",
+    "@semantic-release/git": "^10.0.0",
+    "@types/node": "^24.0.0",
+    "semantic-release": "^25.0.0",
+    "typebox": ">=1.0.0",
+    "typescript": "^5.8.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ],
+    "prompts": [
+      "./prompts"
+    ]
+  }
+}
