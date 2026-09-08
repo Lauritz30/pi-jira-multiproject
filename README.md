@@ -15,7 +15,7 @@ pi install npm:pi-jira-testmanager
 From git:
 
 ```bash
-pi install git:github.com/your-github-username/pi-jira-testmanager
+pi install git:github.com/Lauritz30/pi-jira-testmanager
 ```
 
 For a one-off session: `pi -e npm:pi-jira-testmanager`.
