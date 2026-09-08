@@ -1,4 +1,4 @@
-import { resolveSafetyLevel, type SafetyLevel } from "./config.ts";
+import { resolveSafetyLevel, type HeadlessApprovalRule, type SafetyLevel } from "./config.ts";
 
 export class SafetyBlockedError extends Error {}
 
@@ -10,6 +10,21 @@ export interface MutationContext {
   };
 }
 
+export interface MutationApprovalRequest {
+  title: string;
+  message: string;
+  action?: string;
+  projectKey?: string;
+  issueKeys?: string[];
+}
+
+function matchesHeadlessApproval(rule: HeadlessApprovalRule, request: MutationApprovalRequest): boolean {
+  if (rule.action !== request.action) return false;
+  if (rule.projectKey !== undefined && rule.projectKey !== request.projectKey) return false;
+  if (rule.issueKeys !== undefined && !request.issueKeys?.every((key) => rule.issueKeys!.includes(key))) return false;
+  return true;
+}
+
 /**
  * Gate a mutating tool call according to the resolved safetyLevel:
  * - "readonly": always blocked.
@@ -19,10 +34,11 @@ export interface MutationContext {
  */
 export async function guardMutation(
   config: { safetyLevel: SafetyLevel },
-  site: { name: string; safetyLevel?: SafetyLevel },
+  site: { name: string; safetyLevel?: SafetyLevel; headlessApprovals?: HeadlessApprovalRule[] },
   ctx: MutationContext | undefined,
-  { title, message }: { title: string; message: string },
+  request: MutationApprovalRequest,
 ): Promise<void> {
+  const { title, message } = request;
   const level = resolveSafetyLevel(config, site);
 
   if (level === "readonly") {
@@ -35,9 +51,10 @@ export async function guardMutation(
 
   // level === "confirm"
   if (!ctx?.hasUI) {
+    if (request.action && site.headlessApprovals?.some((rule) => matchesHeadlessApproval(rule, request))) return;
     throw new SafetyBlockedError(
       `Blocked: safetyLevel is "confirm" but no UI is available to prompt for approval in this run mode. ` +
-        `Set safetyLevel to "open" for site "${site.name}" to allow unattended writes.`,
+        `Add a matching headlessApprovals rule or Set safetyLevel to "open" for site "${site.name}" to allow unattended writes.`,
     );
   }
 

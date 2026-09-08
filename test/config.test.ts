@@ -37,6 +37,30 @@ test("loadConfig parses a valid config", () => {
   );
 });
 
+test("loadConfig parses site headless approval rules", () => {
+  withConfigFile(
+    {
+      sites: [{
+        name: "acme",
+        url: "https://acme.atlassian.net",
+        email: "a@acme.com",
+        apiToken: "tok",
+        headlessApprovals: [{ action: "jira_create_issue", projectKey: "UAT" }],
+      }],
+    },
+    (path) => {
+      assert.deepEqual(loadConfig(path).sites[0].headlessApprovals, [{ action: "jira_create_issue", projectKey: "UAT" }]);
+    },
+  );
+});
+
+test("loadConfig rejects malformed site headless approval rules", () => {
+  withConfigFile(
+    { sites: [{ name: "acme", url: "https://acme.atlassian.net", email: "a@acme.com", apiToken: "tok", headlessApprovals: [{}] }] },
+    (path) => assert.throws(() => loadConfig(path), ConfigError),
+  );
+});
+
 test("loadConfig defaults defaultSite to the first site when omitted", () => {
   withConfigFile({ sites: [{ name: "only", url: "https://only.atlassian.net", email: "a@only.com", apiToken: "tok" }] }, (path) => {
     assert.equal(loadConfig(path).defaultSite, "only");

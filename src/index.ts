@@ -2,6 +2,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { loadConfig, resolveSite, type JiraConfig, type JiraSiteConfig } from "./config.ts";
 import { createDoctorTool, runDoctor } from "./tools/doctor.ts";
 import { createReadTools } from "./tools/read.ts";
+import { createRelationTools } from "./tools/relations.ts";
 import { createWriteTools } from "./tools/write.ts";
 import { publishFooterStatus, publishConnectionCard, registerConnectionCardRenderer, type StatusUi } from "./status.ts";
 
@@ -9,6 +10,7 @@ export default function piJiraTestManager(pi: ExtensionAPI) {
   pi.registerTool(createDoctorTool());
   for (const tool of createReadTools()) pi.registerTool(tool);
   for (const tool of createWriteTools()) pi.registerTool(tool);
+  for (const tool of createRelationTools()) pi.registerTool(tool);
 
   registerConnectionCardRenderer(pi);
 

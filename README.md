@@ -81,6 +81,9 @@ Set `"mock": true` in the config to let `jira_doctor` validate config shape with
 | `jira_update_issue` | Update fields on an existing issue |
 | `jira_transition_issue` | Move an issue through a workflow transition |
 | `jira_add_comment` | Add a comment to an issue |
+| `jira_create_issue` with `parentKey` | Create a subtask under the specified parent issue |
+| `jira_list_issue_link_types` | List available issue relationship types |
+| `jira_link_issues` | Create a relationship between two distinct issues |
 
 Plain-text `description`/`comment` inputs are automatically converted to Atlassian Document Format (ADF).
 
@@ -107,6 +110,27 @@ Plain-text `description`/`comment` inputs are automatically converted to Atlassi
 | `defaultSite` | string | first site | Default site name used when a tool call omits `site` |
 | `safetyLevel` | string | `"confirm"` | Global default: `"open"`, `"confirm"`, or `"readonly"` |
 | `mock` | boolean | `false` | Skip live requests in `jira_doctor` for offline testing |
+
+### Headless write approvals
+
+In `confirm` mode, writes without an interactive UI remain blocked unless the selected site defines a matching `headlessApprovals` rule. Rules are deny-by-default and can constrain an action by project or issue keys:
+
+```json
+{
+  "sites": [{
+    "name": "automation",
+    "url": "https://acme.atlassian.net",
+    "email": "bot@acme.com",
+    "apiToken": "your-api-token",
+    "headlessApprovals": [
+      { "action": "jira_create_issue", "projectKey": "UAT" },
+      { "action": "jira_add_comment", "issueKeys": ["UAT-123", "UAT-124"] }
+    ]
+  }]
+}
+```
+
+`readonly` always blocks mutations, including calls that match a headless approval rule.
 
 ## Network egress and corporate proxies
 
@@ -139,7 +163,7 @@ Resolution order: per-site `safetyLevel` override > global config `safetyLevel` 
 - `src/adf.ts` — plain text ↔ Atlassian Document Format conversion
 - `src/safety.ts` — mutation confirmation/blocking gate
 - `src/status.ts` — footer status label + persistent connection card
-- `src/tools/{doctor,read,write}.ts` — tool definitions
+- `src/tools/{doctor,read,write,relations}.ts` — tool definitions
 - `src/index.ts` — extension entry point, tool/command registration
 - `prompts/` — reusable prompt templates for common UAT workflows
 

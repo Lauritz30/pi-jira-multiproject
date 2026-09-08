@@ -55,6 +55,27 @@ test("guardMutation blocks under confirm when no UI is available", async () => {
   );
 });
 
+test("guardMutation permits a matching headless approval rule", async () => {
+  await guardMutation(
+    config,
+    { name: "acme", safetyLevel: "confirm", headlessApprovals: [{ action: "jira_create_issue", projectKey: "UAT" }] },
+    { hasUI: false },
+    { title: "Create Jira issue", message: "m", action: "jira_create_issue", projectKey: "UAT" },
+  );
+});
+
+test("guardMutation blocks a non-matching headless approval rule", async () => {
+  await assert.rejects(
+    () => guardMutation(
+      config,
+      { name: "acme", safetyLevel: "confirm", headlessApprovals: [{ action: "jira_create_issue", projectKey: "UAT" }] },
+      { hasUI: false },
+      { title: "Create Jira issue", message: "m", action: "jira_create_issue", projectKey: "OPS" },
+    ),
+    SafetyBlockedError,
+  );
+});
+
 test("guardMutation falls back to the site's own safetyLevel over the global config", async () => {
   const permissiveConfig = { safetyLevel: "readonly" as const };
   let confirmCalled = false;

@@ -17,6 +17,7 @@ const createParameters = Type.Object({
   issueType: Type.String({ description: "Issue type name, e.g. Bug, Defect, Task." }),
   summary: Type.String(),
   description: Type.Optional(Type.String({ description: "Plain text; auto-converted to Atlassian Document Format." })),
+  parentKey: Type.Optional(Type.String({ description: "Parent issue key when creating a subtask. Cannot be combined with fields.parent." })),
   fields: Type.Optional(
     Type.Record(Type.String(), Type.Unknown(), { description: "Additional raw Jira fields, merged in as-is." }),
   ),
@@ -67,7 +68,13 @@ export function createWriteTools(): ToolDefinition<any, any, any>[] {
         await guardMutation(config, site, ctx, {
           title: "Create Jira issue",
           message: `Create a ${params.issueType} in ${params.projectKey}: "${params.summary}"?`,
+          action: "jira_create_issue",
+          projectKey: params.projectKey,
         });
+
+        if (params.parentKey && params.fields?.parent) {
+          throw new Error('Specify either "parentKey" or "fields.parent", not both.');
+        }
 
         const created = await client.post("/issue", {
           fields: {
@@ -75,6 +82,7 @@ export function createWriteTools(): ToolDefinition<any, any, any>[] {
             issuetype: { name: params.issueType },
             summary: params.summary,
             ...(params.description ? { description: toAdfBody(params.description) } : {}),
+            ...(params.parentKey ? { parent: { key: params.parentKey } } : {}),
             ...params.fields,
           },
         });
@@ -98,6 +106,8 @@ export function createWriteTools(): ToolDefinition<any, any, any>[] {
         await guardMutation(config, site, ctx, {
           title: "Update Jira issue",
           message: `Update ${params.key} with fields: ${Object.keys(params.fields).join(", ")}?`,
+          action: "jira_update_issue",
+          issueKeys: [params.key],
         });
 
         const fields = { ...params.fields };
@@ -125,6 +135,8 @@ export function createWriteTools(): ToolDefinition<any, any, any>[] {
         await guardMutation(config, site, ctx, {
           title: "Transition Jira issue",
           message: `Transition ${params.key} using transition id ${params.transitionId}?`,
+          action: "jira_transition_issue",
+          issueKeys: [params.key],
         });
 
         await client.post(`/issue/${encodeURIComponent(params.key)}/transitions`, {
@@ -154,6 +166,8 @@ export function createWriteTools(): ToolDefinition<any, any, any>[] {
         await guardMutation(config, site, ctx, {
           title: "Add Jira comment",
           message: `Add comment to ${params.key}: "${params.body}"?`,
+          action: "jira_add_comment",
+          issueKeys: [params.key],
         });
 
         const comment = await client.post(`/issue/${encodeURIComponent(params.key)}/comment`, {

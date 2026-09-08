@@ -31,6 +31,19 @@ test("GET builds the expected URL, headers, and returns parsed JSON", async () =
   assert.deepEqual(result, { ok: true });
 });
 
+test("an alternate Jira API base can be selected for Jira Software endpoints", async () => {
+  let seenUrl = "";
+  const fetchImpl = async (url: string) => {
+    seenUrl = url;
+    return jsonResponse(200, { values: [] });
+  };
+
+  const client = createJiraClient(site, { fetchImpl: fetchImpl as any, apiBase: "/rest/agile/1.0" });
+  await client.get("/board");
+
+  assert.equal(seenUrl, "https://example.atlassian.net/rest/agile/1.0/board");
+});
+
 test("GET serializes query params, including arrays as repeated keys", async () => {
   let seenUrl = "";
   const fetchImpl = async (url: string) => {

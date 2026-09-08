@@ -110,13 +110,17 @@ export interface JiraClient {
 interface ClientOptions {
   fetchImpl?: FetchLike;
   dispatcher?: unknown;
+  apiBase?: string;
 }
 
 /**
  * Create a minimal fetch-based Jira Cloud REST API v3 client for one site.
  */
-export function createJiraClient(site: JiraSiteConfig, { fetchImpl = fetch as unknown as FetchLike, dispatcher = getProxyDispatcher() }: ClientOptions = {}): JiraClient {
-  const baseUrl = `${stripTrailingSlashes(site.url)}/rest/api/3`;
+export function createJiraClient(
+  site: JiraSiteConfig,
+  { fetchImpl = fetch as unknown as FetchLike, dispatcher = getProxyDispatcher(), apiBase = "/rest/api/3" }: ClientOptions = {},
+): JiraClient {
+  const baseUrl = `${stripTrailingSlashes(site.url)}${apiBase.startsWith("/") ? apiBase : `/${apiBase}`}`;
   const authHeader = buildBasicAuthHeader(site.email, site.apiToken);
 
   async function requestOnce(url: string, method: string, body: unknown, signal?: AbortSignal): Promise<ResponseLike> {

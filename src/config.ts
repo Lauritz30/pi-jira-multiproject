@@ -6,6 +6,13 @@ export const CONFIG_FILE_NAME = "pi-jira-testmanager.json";
 
 export type SafetyLevel = "open" | "confirm" | "readonly";
 
+/** A narrowly scoped mutation action permitted for a headless confirm-mode run. */
+export interface HeadlessApprovalRule {
+  action: string;
+  projectKey?: string;
+  issueKeys?: string[];
+}
+
 /** A single Jira Cloud site/account entry from the config file. */
 export interface JiraSiteConfig {
   name: string;
@@ -13,6 +20,7 @@ export interface JiraSiteConfig {
   email: string;
   apiToken?: string;
   safetyLevel?: SafetyLevel;
+  headlessApprovals?: HeadlessApprovalRule[];
 }
 
 /** Parsed and validated contents of the user-level config file. */
@@ -31,6 +39,7 @@ interface RawSite {
   email?: unknown;
   apiToken?: unknown;
   safetyLevel?: unknown;
+  headlessApprovals?: unknown;
 }
 
 export class ConfigError extends Error {}
@@ -69,6 +78,21 @@ export function loadConfig(path: string = getConfigPath()): JiraConfig {
     if (!site.url) throw new ConfigError(`Config ${path}: site "${site.name}" requires a "url" (e.g. https://your-domain.atlassian.net).`);
     if (!site.email) throw new ConfigError(`Config ${path}: site "${site.name}" requires an "email".`);
     if (!site.apiToken && !raw.mock) throw new ConfigError(`Config ${path}: site "${site.name}" requires an "apiToken".`);
+    if (site.headlessApprovals !== undefined && !Array.isArray(site.headlessApprovals)) {
+      throw new ConfigError(`Config ${path}: site "${site.name}" field "headlessApprovals" must be an array.`);
+    }
+    for (const rule of (site.headlessApprovals ?? [])) {
+      if (!rule || typeof rule !== "object" || typeof (rule as { action?: unknown }).action !== "string") {
+        throw new ConfigError(`Config ${path}: every "headlessApprovals" entry for site "${site.name}" requires an "action" string.`);
+      }
+      const typedRule = rule as { projectKey?: unknown; issueKeys?: unknown };
+      if (typedRule.projectKey !== undefined && typeof typedRule.projectKey !== "string") {
+        throw new ConfigError(`Config ${path}: "headlessApprovals.projectKey" for site "${site.name}" must be a string.`);
+      }
+      if (typedRule.issueKeys !== undefined && (!Array.isArray(typedRule.issueKeys) || !typedRule.issueKeys.every((key) => typeof key === "string"))) {
+        throw new ConfigError(`Config ${path}: "headlessApprovals.issueKeys" for site "${site.name}" must be an array of strings.`);
+      }
+    }
   }
 
   const parsedSites: JiraSiteConfig[] = sites.map((site) => ({
@@ -77,6 +101,18 @@ export function loadConfig(path: string = getConfigPath()): JiraConfig {
     email: String(site.email),
     ...(site.apiToken !== undefined ? { apiToken: String(site.apiToken) } : {}),
     ...(site.safetyLevel !== undefined ? { safetyLevel: site.safetyLevel as SafetyLevel } : {}),
+    ...(Array.isArray(site.headlessApprovals)
+      ? {
+          headlessApprovals: site.headlessApprovals.map((rule) => {
+            const typedRule = rule as { action: string; projectKey?: string; issueKeys?: string[] };
+            return {
+              action: typedRule.action,
+              ...(typedRule.projectKey !== undefined ? { projectKey: typedRule.projectKey } : {}),
+              ...(typedRule.issueKeys !== undefined ? { issueKeys: typedRule.issueKeys } : {}),
+            };
+          }),
+        }
+      : {}),
   }));
 
   return {
