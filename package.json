@@ -1,5 +1,5 @@
 {
-  "name": "pi-jira-testmanager",
+  "name": "pi-jira-multiproject",
   "version": "1.0.0",
   "description": "Jira Cloud (REST API v3) integration for the pi coding agent — JQL search, issues, comments, transitions, filters.",
   "keywords": [
@@ -16,10 +16,10 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/Lauritz30/pi-jira-testmanager.git"
+    "url": "https://github.com/Lauritz30/pi-jira-multiproject.git"
   },
   "bugs": {
-    "url": "https://github.com/Lauritz30/pi-jira-testmanager/issues"
+    "url": "https://github.com/Lauritz30/pi-jira-multiproject/issues"
   },
   "files": [
     "index.ts",

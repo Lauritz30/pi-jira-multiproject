@@ -1,4 +1,4 @@
-# pi-jira-testmanager
+# pi-jira-multiproject
 
 Jira Cloud (REST API v3) integration for the [pi coding agent](https://pi.dev) — JQL search, issues, comments, transitions, and filters for test-management workflows.
 
@@ -9,21 +9,21 @@ Jira Cloud (REST API v3) integration for the [pi coding agent](https://pi.dev) �
 From npm:
 
 ```bash
-pi install npm:pi-jira-testmanager
+pi install npm:pi-jira-multiproject
 ```
 
 From git:
 
 ```bash
-pi install git:github.com/Lauritz30/pi-jira-testmanager
+pi install git:github.com/Lauritz30/pi-jira-multiproject
 ```
 
-For a one-off session: `pi -e npm:pi-jira-testmanager`.
+For a one-off session: `pi -e npm:pi-jira-multiproject`.
 
 ## Quick Start
 
 1. Generate an API token at https://id.atlassian.com/manage-profile/security/api-tokens.
-2. Create `~/.pi/agent/pi-jira-testmanager.json` with your site, email, and API token.
+2. Create `~/.pi/agent/pi-jira-multiproject.json` with your site, email, and API token.
 3. Run `/jira-doctor` to verify configuration and connectivity.
 
 ### Example configuration
@@ -136,7 +136,7 @@ In `confirm` mode, writes without an interactive UI remain blocked unless the se
 
 This extension calls Jira Cloud directly over HTTPS; no special network config is required when outbound internet access is available.
 
-If your environment requires an outbound HTTP(S) proxy, set `HTTPS_PROXY` (or `HTTP_PROXY`) as an environment variable. The client automatically builds an [undici](https://undici.nodejs.org/) `ProxyAgent` from it; no extra config is needed in `pi-jira-testmanager.json`. `NO_PROXY` bypass rules are not currently supported.
+If your environment requires an outbound HTTP(S) proxy, set `HTTPS_PROXY` (or `HTTP_PROXY`) as an environment variable. The client automatically builds an [undici](https://undici.nodejs.org/) `ProxyAgent` from it; no extra config is needed in `pi-jira-multiproject.json`. `NO_PROXY` bypass rules are not currently supported.
 
 To rule out a proxy/firewall issue vs. a config issue, test raw connectivity first:
 
@@ -156,7 +156,7 @@ Resolution order: per-site `safetyLevel` override > global config `safetyLevel` 
 
 ## Architecture
 
-- `src/config.ts` — load/validate `~/.pi/agent/pi-jira-testmanager.json`, site/safety-level resolution
+- `src/config.ts` — load/validate `~/.pi/agent/pi-jira-multiproject.json`, site/safety-level resolution
 - `src/auth.ts` — Basic Auth header construction (email + API token)
 - `src/proxy.ts` — optional corporate-proxy dispatcher built from `HTTPS_PROXY`/`HTTP_PROXY`
 - `src/client.ts` — fetch wrapper (JSON in/out, error normalization, 429 retry/backoff)
@@ -178,9 +178,9 @@ npm run check   # tsc --noEmit type-check
 Run against a local checkout from anywhere with:
 
 ```bash
-pi install /absolute/path/to/pi-jira-testmanager
+pi install /absolute/path/to/pi-jira-multiproject
 # or, for a one-off session:
-pi -e /absolute/path/to/pi-jira-testmanager
+pi -e /absolute/path/to/pi-jira-multiproject
 ```
 
 ## Requirements

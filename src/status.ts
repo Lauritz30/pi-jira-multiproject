@@ -2,7 +2,7 @@ import { Box, Text } from "@earendil-works/pi-tui";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { resolveSafetyLevel, type JiraConfig, type JiraSiteConfig } from "./config.ts";
 
-const ENTRY_TYPE = "pi-jira-testmanager:connection";
+const ENTRY_TYPE = "pi-jira-multiproject:connection";
 
 /** Data persisted on the connection card entry (TUI-only, never sent to the LLM). */
 export interface ConnectionCardData {
@@ -30,7 +30,7 @@ export function buildFooterLabel(config: JiraConfig, site: JiraSiteConfig | unde
 
 /** Publish/refresh the footer status label for the active site. */
 export function publishFooterStatus(ctx: StatusUi, config: JiraConfig, site: JiraSiteConfig | undefined): void {
-  ctx.ui.setStatus("pi-jira-testmanager", buildFooterLabel(config, site));
+  ctx.ui.setStatus("pi-jira-multiproject", buildFooterLabel(config, site));
 }
 
 /** Append a persistent connection card entry to the transcript (TUI-only, not sent to the LLM). */

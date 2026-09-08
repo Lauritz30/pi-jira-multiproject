@@ -2,7 +2,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-export const CONFIG_FILE_NAME = "pi-jira-testmanager.json";
+export const CONFIG_FILE_NAME = "pi-jira-multiproject.json";
 
 export type SafetyLevel = "open" | "confirm" | "readonly";
 
@@ -44,7 +44,7 @@ interface RawSite {
 
 export class ConfigError extends Error {}
 
-/** Absolute path to the user-level config file (~/.pi/agent/pi-jira-testmanager.json). */
+/** Absolute path to the user-level config file (~/.pi/agent/pi-jira-multiproject.json). */
 export function getConfigPath(): string {
   return join(homedir(), ".pi", "agent", CONFIG_FILE_NAME);
 }
