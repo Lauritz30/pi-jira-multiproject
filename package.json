@@ -1,6 +1,6 @@
 {
   "name": "pi-jira-multiproject",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Jira Cloud (REST API v3) integration for the pi coding agent — JQL search, issues, comments, transitions, filters.",
   "keywords": [
     "pi-package",
