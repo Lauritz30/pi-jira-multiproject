@@ -6,10 +6,10 @@ import { loadConfig, resolveSite } from "../config.ts";
 import { guardMutation, type MutationContext } from "../safety.ts";
 import { siteParam, textResult } from "./shared.ts";
 
-function getSiteClient(params: { site?: string }) {
+async function getSiteClient(params: { site?: string }) {
   const config = loadConfig();
   const site = resolveSite(config, params.site);
-  return { config, site, client: createJiraClient(site) };
+  return { config, site, client: await createJiraClient(site) };
 }
 
 const linkTypeParameters = Type.Object({
@@ -35,7 +35,7 @@ export function createRelationTools(): ToolDefinition<any, any, any>[] {
       promptSnippet: "List Jira issue link types",
       parameters: linkTypeParameters,
       async execute(_toolCallId: string, params: LinkTypeParams) {
-        const { client } = getSiteClient(params);
+        const { client } = await getSiteClient(params);
         const result = await client.get("/issueLinkType");
         const types = result.issueLinkTypes ?? [];
         return textResult(
@@ -61,7 +61,7 @@ export function createRelationTools(): ToolDefinition<any, any, any>[] {
           throw new Error("Issue links require two distinct issue keys.");
         }
 
-        const { config, site, client } = getSiteClient(params);
+        const { config, site, client } = await getSiteClient(params);
         await guardMutation(config, site, ctx, {
           title: "Link Jira issues",
           message: `Create a ${params.linkType} link between ${params.outwardIssueKey} and ${params.inwardIssueKey}?`,

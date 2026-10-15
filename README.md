@@ -22,9 +22,25 @@ For a one-off session: `pi -e npm:pi-jira-multiproject`.
 
 ## Quick Start
 
+Pick one of the two supported sign-in methods for each site:
+
+- **Personal access token (PAT)** — `email` + `apiToken` in the config file.
+- **OAuth 2.0 (3LO)** — a browser sign-in via `/jira-login`; tokens are stored and refreshed automatically.
+
+### PAT setup
+
 1. Generate an API token at https://id.atlassian.com/manage-profile/security/api-tokens.
-2. Create `~/.pi/agent/pi-jira-multiproject.json` with your site, email, and API token.
+2. Create `~/.pi/agent/pi-jira-multiproject.json` with your site, email, and API token (see the examples below), or run `/jira-login` and choose PAT.
 3. Run `/jira-doctor` to verify configuration and connectivity.
+
+### OAuth setup
+
+1. Create an OAuth 2.0 (3LO) app at https://developer.atlassian.com/console/myapps/ and add the Jira API with at least `read:jira-work` and `write:jira-work` (plus `offline_access` for refresh tokens).
+2. Under **Authorization**, configure a callback URL such as `http://localhost:8765/callback` (the OAuth flow pastes the redirected URL back into pi, so any reachable callback URL works).
+3. Run `/jira-login`, choose **OAuth 2.0 (3LO)**, and enter the site name, site URL, client ID, client secret, callback URL, and scopes.
+4. Approve the browser prompt, paste the full callback URL back into pi, and run `/jira-doctor` to verify.
+
+OAuth requests are sent through `https://api.atlassian.com/ex/jira/<cloudId>` with a bearer token. The cloud ID is resolved from the Atlassian accessible-resources endpoint after login, and expired access tokens are refreshed automatically using the stored refresh token.
 
 ### Example configuration
 
@@ -43,6 +59,28 @@ For a one-off session: `pi -e npm:pi-jira-multiproject`.
 }
 ```
 
+### OAuth example configuration
+
+```json
+{
+  "defaultSite": "acme",
+  "sites": [
+    {
+      "name": "acme",
+      "url": "https://acme.atlassian.net",
+      "oauth": {
+        "clientId": "your-client-id",
+        "clientSecret": "your-client-secret",
+        "redirectUri": "http://localhost:8765/callback",
+        "scopes": ["read:jira-work", "write:jira-work", "read:jira-user", "offline_access"]
+      }
+    }
+  ]
+}
+```
+
+After `/jira-login`, the `oauth` object is updated with `accessToken`, `refreshToken`, `expiresAt`, and `cloudId`.
+
 ### Multi-site
 
 ```json
@@ -50,7 +88,7 @@ For a one-off session: `pi -e npm:pi-jira-multiproject`.
   "defaultSite": "acme",
   "sites": [
     { "name": "acme", "url": "https://acme.atlassian.net", "email": "you@acme.com", "apiToken": "token-a" },
-    { "name": "client-xyz", "url": "https://client-xyz.atlassian.net", "email": "you@client-xyz.com", "apiToken": "token-b", "safetyLevel": "readonly" }
+    { "name": "client-xyz", "url": "https://client-xyz.atlassian.net", "oauth": { "clientId": "client-id", "clientSecret": "client-secret", "redirectUri": "http://localhost:8765/callback" }, "safetyLevel": "readonly" }
   ]
 }
 ```
@@ -91,8 +129,9 @@ Plain-text `description`/`comment` inputs are automatically converted to Atlassi
 
 | Command | Description |
 | --- | --- |
-| `/jira-status` | Show the current connection status (site, safety level) |
+| `/jira-status` | Show the current connection status (site, auth method, safety level) |
 | `/jira-doctor` | Check configuration, auth, and connection health |
+| `/jira-login` | Sign in to a site with OAuth 2.0 (3LO) or a personal access token |
 
 ## Prompt templates
 
@@ -106,7 +145,8 @@ Plain-text `description`/`comment` inputs are automatically converted to Atlassi
 
 | Key | Type | Default | Description |
 | --- | --- | --- | --- |
-| `sites` | array | — | List of `{ name, url, email, apiToken, safetyLevel? }` |
+| `sites` | array | — | List of site entries. Each entry is either PAT (`name`, `url`, `email`, `apiToken`) or OAuth (`name`, `url`, `oauth`). Optional per-site fields: `safetyLevel`, `headlessApprovals` |
+| `sites[].oauth` | object | — | OAuth 2.0 (3LO) settings: `{ clientId, clientSecret, redirectUri?, scopes?, accessToken?, refreshToken?, expiresAt?, cloudId? }` |
 | `defaultSite` | string | first site | Default site name used when a tool call omits `site` |
 | `safetyLevel` | string | `"confirm"` | Global default: `"open"`, `"confirm"`, or `"readonly"` |
 | `mock` | boolean | `false` | Skip live requests in `jira_doctor` for offline testing |
@@ -156,10 +196,12 @@ Resolution order: per-site `safetyLevel` override > global config `safetyLevel` 
 
 ## Architecture
 
-- `src/config.ts` — load/validate `~/.pi/agent/pi-jira-multiproject.json`, site/safety-level resolution
-- `src/auth.ts` — Basic Auth header construction (email + API token)
+- `src/config.ts` — load/validate `~/.pi/agent/pi-jira-multiproject.json`, site/safety-level resolution, config writes
+- `src/auth.ts` — Basic and Bearer auth header construction (PAT and OAuth)
+- `src/oauth.ts` — Atlassian OAuth 2.0 (3LO) authorization, token exchange/refresh, cloud ID resolution
+- `src/login.ts` — interactive `/jira-login` command (OAuth or PAT)
 - `src/proxy.ts` — optional corporate-proxy dispatcher built from `HTTPS_PROXY`/`HTTP_PROXY`
-- `src/client.ts` — fetch wrapper (JSON in/out, error normalization, 429 retry/backoff)
+- `src/client.ts` — fetch wrapper (PAT/OAuth base URLs and auth, JSON in/out, error normalization, 429 retry/backoff)
 - `src/adf.ts` — plain text ↔ Atlassian Document Format conversion
 - `src/safety.ts` — mutation confirmation/blocking gate
 - `src/status.ts` — footer status label + persistent connection card
@@ -187,7 +229,7 @@ pi -e /absolute/path/to/pi-jira-multiproject
 
 - Node.js 22.19+ (pi runs `.ts` extension entries natively via type stripping)
 - pi coding agent
-- A Jira Cloud site with an API token
+- A Jira Cloud site with either an API token (PAT) or an OAuth 2.0 (3LO) app
 
 ## License
 

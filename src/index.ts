@@ -5,6 +5,7 @@ import { createReadTools } from "./tools/read.ts";
 import { createRelationTools } from "./tools/relations.ts";
 import { createWriteTools } from "./tools/write.ts";
 import { publishFooterStatus, publishConnectionCard, registerConnectionCardRenderer, type StatusUi } from "./status.ts";
+import { runJiraLogin } from "./login.ts";
 
 export default function piJiraTestManager(pi: ExtensionAPI) {
   pi.registerTool(createDoctorTool());
@@ -42,6 +43,14 @@ export default function piJiraTestManager(pi: ExtensionAPI) {
     handler: async (_args, ctx) => {
       const result = await runDoctor({});
       ctx.ui.notify(result.content[0].text, result.isError ? "error" : "info");
+    },
+  });
+
+  pi.registerCommand("jira-login", {
+    description: "Sign in to a Jira site with OAuth 2.0 (3LO) or a personal access token",
+    handler: async (_args, ctx) => {
+      await runJiraLogin(ctx);
+      refreshStatus(ctx);
     },
   });
 }
