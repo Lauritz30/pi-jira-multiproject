@@ -42,6 +42,8 @@ Pick one of the two supported sign-in methods for each site:
 
 OAuth requests are sent through `https://api.atlassian.com/ex/jira/<cloudId>` with a bearer token. The cloud ID is resolved from the Atlassian accessible-resources endpoint after login, and expired access tokens are refreshed automatically using the stored refresh token.
 
+To grant the OAuth app access to only one project, authorize it with a Jira account whose **Browse Projects** / issue permissions are limited to that project. Jira user permissions still constrain every OAuth token, regardless of the app's scopes.
+
 ### Example configuration
 
 ```json
