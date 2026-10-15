@@ -6,10 +6,10 @@ import { toAdfBody } from "../adf.ts";
 import { guardMutation, type MutationContext } from "../safety.ts";
 import { siteParam, textResult } from "./shared.ts";
 
-function getSiteClient(params: { site?: string }) {
+async function getSiteClient(params: { site?: string }) {
   const config = loadConfig();
   const site = resolveSite(config, params.site);
-  return { config, site, client: createJiraClient(site) };
+  return { config, site, client: await createJiraClient(site) };
 }
 
 const createParameters = Type.Object({
@@ -64,7 +64,7 @@ export function createWriteTools(): ToolDefinition<any, any, any>[] {
         _onUpdate: unknown,
         ctx: MutationContext | undefined,
       ) {
-        const { config, site, client } = getSiteClient(params);
+        const { config, site, client } = await getSiteClient(params);
         await guardMutation(config, site, ctx, {
           title: "Create Jira issue",
           message: `Create a ${params.issueType} in ${params.projectKey}: "${params.summary}"?`,
@@ -102,7 +102,7 @@ export function createWriteTools(): ToolDefinition<any, any, any>[] {
         _onUpdate: unknown,
         ctx: MutationContext | undefined,
       ) {
-        const { config, site, client } = getSiteClient(params);
+        const { config, site, client } = await getSiteClient(params);
         await guardMutation(config, site, ctx, {
           title: "Update Jira issue",
           message: `Update ${params.key} with fields: ${Object.keys(params.fields).join(", ")}?`,
@@ -131,7 +131,7 @@ export function createWriteTools(): ToolDefinition<any, any, any>[] {
         _onUpdate: unknown,
         ctx: MutationContext | undefined,
       ) {
-        const { config, site, client } = getSiteClient(params);
+        const { config, site, client } = await getSiteClient(params);
         await guardMutation(config, site, ctx, {
           title: "Transition Jira issue",
           message: `Transition ${params.key} using transition id ${params.transitionId}?`,
@@ -162,7 +162,7 @@ export function createWriteTools(): ToolDefinition<any, any, any>[] {
         _onUpdate: unknown,
         ctx: MutationContext | undefined,
       ) {
-        const { config, site, client } = getSiteClient(params);
+        const { config, site, client } = await getSiteClient(params);
         await guardMutation(config, site, ctx, {
           title: "Add Jira comment",
           message: `Add comment to ${params.key}: "${params.body}"?`,

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { loadConfig, resolveSite, resolveSafetyLevel, ConfigError, type JiraConfig, type JiraSiteConfig } from "../src/config.ts";
+import { loadConfig, resolveSite, resolveSafetyLevel, upsertSiteConfig, ConfigError, type JiraConfig, type JiraSiteConfig } from "../src/config.ts";
 
 function withConfigFile(contents: unknown | undefined, run: (path: string) => void) {
   const dir = mkdtempSync(join(tmpdir(), "pi-jira-test-"));
@@ -59,6 +59,64 @@ test("loadConfig rejects malformed site headless approval rules", () => {
     { sites: [{ name: "acme", url: "https://acme.atlassian.net", email: "a@acme.com", apiToken: "tok", headlessApprovals: [{}] }] },
     (path) => assert.throws(() => loadConfig(path), ConfigError),
   );
+});
+
+test("loadConfig parses an OAuth site and stamps its config path", () => {
+  withConfigFile(
+    {
+      sites: [{
+        name: "acme",
+        url: "https://acme.atlassian.net",
+        oauth: {
+          clientId: "client-id",
+          clientSecret: "client-secret",
+          redirectUri: "http://localhost:8765/callback",
+          scopes: ["read:jira-work"],
+          accessToken: "access-token",
+          refreshToken: "refresh-token",
+          expiresAt: 123,
+          cloudId: "cloud-id",
+        },
+      }],
+    },
+    (path) => {
+      const site = loadConfig(path).sites[0];
+      assert.equal(site.email, undefined);
+      assert.equal(site.apiToken, undefined);
+      assert.equal(site.oauth?.clientId, "client-id");
+      assert.equal(site.oauth?.cloudId, "cloud-id");
+      assert.equal(site.configPath, path);
+    },
+  );
+});
+
+test("loadConfig rejects an OAuth site missing clientId", () => {
+  withConfigFile({ sites: [{ name: "acme", url: "https://acme.atlassian.net", oauth: { clientSecret: "secret" } }] }, (path) => {
+    assert.throws(() => loadConfig(path), /oauth\.clientId/);
+  });
+});
+
+test("upsertSiteConfig writes a site and preserves other top-level config fields", () => {
+  withConfigFile({ mock: true, sites: [{ name: "other", url: "https://other.atlassian.net", email: "a@other.com" }] }, (path) => {
+    upsertSiteConfig(path, { name: "acme", url: "https://acme.atlassian.net", oauth: { clientId: "client-id", clientSecret: "secret" } });
+
+    const config = loadConfig(path);
+    assert.equal(config.mock, true);
+    assert.deepEqual(config.sites.map((site) => site.name), ["other", "acme"]);
+    assert.equal(config.sites[1].oauth?.clientId, "client-id");
+    assert.equal(config.defaultSite, "acme");
+  });
+});
+
+test("upsertSiteConfig replaces the auth method for an existing site", () => {
+  withConfigFile({ sites: [{ name: "acme", url: "https://acme.atlassian.net", email: "a@acme.com", apiToken: "old-token" }] }, (path) => {
+    upsertSiteConfig(path, { name: "acme", url: "https://acme.atlassian.net", oauth: { clientId: "client-id", clientSecret: "secret" } });
+
+    const site = loadConfig(path).sites[0];
+    assert.equal(site.email, undefined);
+    assert.equal(site.apiToken, undefined);
+    assert.equal(site.oauth?.clientId, "client-id");
+  });
 });
 
 test("loadConfig defaults defaultSite to the first site when omitted", () => {
