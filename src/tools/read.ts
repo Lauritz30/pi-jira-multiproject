@@ -4,10 +4,10 @@ import { loadConfig, resolveSite } from "../config.ts";
 import { createJiraClient } from "../client.ts";
 import { siteParam, textResult } from "./shared.ts";
 
-function getSiteClient(params: { site?: string }) {
+async function getSiteClient(params: { site?: string }) {
   const config = loadConfig();
   const site = resolveSite(config, params.site);
-  return { config, site, client: createJiraClient(site) };
+  return { config, site, client: await createJiraClient(site) };
 }
 
 const searchParameters = Type.Object({
@@ -73,7 +73,7 @@ export function createReadTools(): ToolDefinition<any, any, any>[] {
       ],
       parameters: searchParameters,
       async execute(_toolCallId: string, params: SearchParams) {
-        const { client } = getSiteClient(params);
+        const { client } = await getSiteClient(params);
         const result = await client.post("/search/jql", {
           jql: params.jql,
           fields: params.fields,
@@ -93,7 +93,7 @@ export function createReadTools(): ToolDefinition<any, any, any>[] {
       promptSnippet: "Fetch a single Jira issue by key",
       parameters: getIssueParameters,
       async execute(_toolCallId: string, params: GetIssueParams) {
-        const { client } = getSiteClient(params);
+        const { client } = await getSiteClient(params);
         const issue = await client.get(`/issue/${encodeURIComponent(params.key)}`, {
           query: { fields: params.fields, expand: params.expand },
         });
@@ -107,7 +107,7 @@ export function createReadTools(): ToolDefinition<any, any, any>[] {
       promptSnippet: "List comments on a Jira issue",
       parameters: commentsParameters,
       async execute(_toolCallId: string, params: CommentsParams) {
-        const { client } = getSiteClient(params);
+        const { client } = await getSiteClient(params);
         const result = await client.get(`/issue/${encodeURIComponent(params.key)}/comment`, {
           query: { maxResults: params.maxResults },
         });
@@ -122,7 +122,7 @@ export function createReadTools(): ToolDefinition<any, any, any>[] {
       promptSnippet: "List available workflow transitions for an issue",
       parameters: transitionsParameters,
       async execute(_toolCallId: string, params: TransitionsParams) {
-        const { client } = getSiteClient(params);
+        const { client } = await getSiteClient(params);
         const result = await client.get(`/issue/${encodeURIComponent(params.key)}/transitions`);
         const summary = result.transitions.map((t: any) => `${t.id}: ${t.name} -> ${t.to?.name}`).join("\n");
         return textResult(summary || "No transitions available.", result);
@@ -136,7 +136,7 @@ export function createReadTools(): ToolDefinition<any, any, any>[] {
       promptSnippet: "Fetch required fields for creating an issue in a project",
       parameters: createMetaParameters,
       async execute(_toolCallId: string, params: CreateMetaParams) {
-        const { client } = getSiteClient(params);
+        const { client } = await getSiteClient(params);
         const result = await client.get("/issue/createmeta", {
           query: {
             projectKeys: params.projectKey,
@@ -154,7 +154,7 @@ export function createReadTools(): ToolDefinition<any, any, any>[] {
       promptSnippet: "List saved Jira filters",
       parameters: listFiltersParameters,
       async execute(_toolCallId: string, params: ListFiltersParams) {
-        const { client } = getSiteClient(params);
+        const { client } = await getSiteClient(params);
         const result = await client.get("/filter/search", { query: { filterName: params.filterName } });
         const summary = result.values.map((f: any) => `${f.id}: ${f.name}`).join("\n");
         return textResult(summary || "No filters found.", result);
@@ -167,7 +167,7 @@ export function createReadTools(): ToolDefinition<any, any, any>[] {
       promptSnippet: "Fetch a saved Jira filter's JQL",
       parameters: getFilterParameters,
       async execute(_toolCallId: string, params: GetFilterParams) {
-        const { client } = getSiteClient(params);
+        const { client } = await getSiteClient(params);
         const filter = await client.get(`/filter/${encodeURIComponent(params.id)}`);
         return textResult(`${filter.name}: ${filter.jql}`, filter);
       },

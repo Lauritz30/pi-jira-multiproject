@@ -6,3 +6,11 @@ export function buildBasicAuthHeader(email: string | undefined, apiToken: string
   const encoded = Buffer.from(`${email}:${apiToken}`, "utf8").toString("base64");
   return `Basic ${encoded}`;
 }
+
+/** Build the `Authorization: Bearer ...` header value for Jira Cloud OAuth 2.0 (3LO) auth. */
+export function buildBearerAuthHeader(accessToken: string | undefined): string {
+  if (!accessToken) {
+    throw new Error("buildBearerAuthHeader requires an access token.");
+  }
+  return `Bearer ${accessToken}`;
+}

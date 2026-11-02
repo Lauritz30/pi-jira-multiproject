@@ -23,7 +23,7 @@ test("GET builds the expected URL, headers, and returns parsed JSON", async () =
     return jsonResponse(200, { ok: true });
   };
 
-  const client = createJiraClient(site, { fetchImpl: fetchImpl as any });
+  const client = await createJiraClient(site, { fetchImpl: fetchImpl as any });
   const result = await client.get("/myself");
 
   assert.equal(seenUrl, "https://example.atlassian.net/rest/api/3/myself");
@@ -38,7 +38,7 @@ test("an alternate Jira API base can be selected for Jira Software endpoints", a
     return jsonResponse(200, { values: [] });
   };
 
-  const client = createJiraClient(site, { fetchImpl: fetchImpl as any, apiBase: "/rest/agile/1.0" });
+  const client = await createJiraClient(site, { fetchImpl: fetchImpl as any, apiBase: "/rest/agile/1.0" });
   await client.get("/board");
 
   assert.equal(seenUrl, "https://example.atlassian.net/rest/agile/1.0/board");
@@ -50,7 +50,7 @@ test("GET serializes query params, including arrays as repeated keys", async () 
     seenUrl = url;
     return jsonResponse(200, {});
   };
-  const client = createJiraClient(site, { fetchImpl: fetchImpl as any });
+  const client = await createJiraClient(site, { fetchImpl: fetchImpl as any });
   await client.get("/search", { query: { jql: "project = X", fields: ["summary", "status"], missing: undefined } });
 
   const url = new URL(seenUrl);
@@ -67,7 +67,7 @@ test("POST sends a JSON body and Content-Type header", async () => {
     seenHeaders = init.headers;
     return jsonResponse(200, { id: "1" });
   };
-  const client = createJiraClient(site, { fetchImpl: fetchImpl as any });
+  const client = await createJiraClient(site, { fetchImpl: fetchImpl as any });
   await client.post("/issue", { fields: { summary: "x" } });
 
   assert.equal(seenHeaders["Content-Type"], "application/json");
@@ -76,7 +76,7 @@ test("POST sends a JSON body and Content-Type header", async () => {
 
 test("non-2xx responses throw JiraApiError with status and body", async () => {
   const fetchImpl = async () => jsonResponse(401, { errorMessages: ["Unauthorized"] });
-  const client = createJiraClient(site, { fetchImpl: fetchImpl as any });
+  const client = await createJiraClient(site, { fetchImpl: fetchImpl as any });
 
   await assert.rejects(() => client.get("/myself"), (error) => {
     assert.ok(error instanceof JiraApiError);
@@ -93,7 +93,7 @@ test("429 responses are retried after Retry-After before succeeding", async () =
     if (attempts === 1) return jsonResponse(429, {}, { "retry-after": "0" });
     return jsonResponse(200, { ok: true });
   };
-  const client = createJiraClient(site, { fetchImpl: fetchImpl as any });
+  const client = await createJiraClient(site, { fetchImpl: fetchImpl as any });
   const result = await client.get("/myself");
 
   assert.equal(attempts, 2);
@@ -102,7 +102,7 @@ test("429 responses are retried after Retry-After before succeeding", async () =
 
 test("204 responses resolve to undefined", async () => {
   const fetchImpl = async () => ({ status: 204, statusText: "No Content", headers: { get: () => null } });
-  const client = createJiraClient(site, { fetchImpl: fetchImpl as any });
+  const client = await createJiraClient(site, { fetchImpl: fetchImpl as any });
   assert.equal(await client.get("/issue/UAT-1/transitions"), undefined);
 });
 
@@ -113,7 +113,7 @@ test("an explicit dispatcher (e.g. a corporate proxy agent) is passed through to
     seenDispatcher = init.dispatcher;
     return jsonResponse(200, {});
   };
-  const client = createJiraClient(site, { fetchImpl: fetchImpl as any, dispatcher: fakeDispatcher });
+  const client = await createJiraClient(site, { fetchImpl: fetchImpl as any, dispatcher: fakeDispatcher });
   await client.get("/myself");
   assert.equal(seenDispatcher, fakeDispatcher);
 });
@@ -124,7 +124,58 @@ test("no dispatcher option is set on fetch when none is configured", async () =>
     sawDispatcherKey = "dispatcher" in init;
     return jsonResponse(200, {});
   };
-  const client = createJiraClient(site, { fetchImpl: fetchImpl as any, dispatcher: undefined });
+  const client = await createJiraClient(site, { fetchImpl: fetchImpl as any, dispatcher: undefined });
   await client.get("/myself");
   assert.equal(sawDispatcherKey, false);
+});
+
+const oauthSite = {
+  name: "acme",
+  url: "https://acme.atlassian.net",
+  oauth: {
+    clientId: "client-id",
+    clientSecret: "client-secret",
+    accessToken: "access-token",
+    refreshToken: "refresh-token",
+    expiresAt: Date.now() + 3_600_000,
+    cloudId: "cloud-123",
+  },
+};
+
+test("OAuth sites call api.atlassian.com with a Bearer header", async () => {
+  let seenUrl = "";
+  let seenHeaders: Record<string, string> = {};
+  const fetchImpl = async (url: string, init: any) => {
+    seenUrl = url;
+    seenHeaders = init.headers;
+    return jsonResponse(200, { ok: true });
+  };
+
+  const client = await createJiraClient(oauthSite, { fetchImpl: fetchImpl as any });
+  const result = await client.get("/myself");
+
+  assert.equal(seenUrl, "https://api.atlassian.com/ex/jira/cloud-123/rest/api/3/myself");
+  assert.equal(seenHeaders.Authorization, "Bearer access-token");
+  assert.deepEqual(result, { ok: true });
+});
+
+test("OAuth client refreshes a rejected token once and retries", async () => {
+  let issueAttempts = 0;
+  const seenAuthorization: string[] = [];
+  const fetchImpl = async (url: string, init: any) => {
+    if (url.includes("/oauth/token")) {
+      return jsonResponse(200, { access_token: "new-access-token", expires_in: 3600 });
+    }
+    issueAttempts += 1;
+    seenAuthorization.push(init.headers.Authorization);
+    if (issueAttempts === 1) return jsonResponse(401, {});
+    return jsonResponse(200, { ok: true });
+  };
+
+  const client = await createJiraClient(oauthSite, { fetchImpl: fetchImpl as any });
+  const result = await client.get("/myself");
+
+  assert.equal(issueAttempts, 2);
+  assert.deepEqual(seenAuthorization, ["Bearer access-token", "Bearer new-access-token"]);
+  assert.deepEqual(result, { ok: true });
 });

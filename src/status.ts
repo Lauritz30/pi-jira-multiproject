@@ -10,6 +10,7 @@ export interface ConnectionCardData {
   site?: string;
   url?: string;
   email?: string;
+  authMethod?: "pat" | "oauth";
   safetyLevel?: string;
   configPath: string;
 }
@@ -21,11 +22,12 @@ export interface StatusUi {
   };
 }
 
-/** Compact footer status label, e.g. "✓ Jira · my-site (confirm)". */
+/** Compact footer status label, e.g. "✓ Jira · my-site (confirm, oauth)". */
 export function buildFooterLabel(config: JiraConfig, site: JiraSiteConfig | undefined): string {
   if (!site) return "Jira · not configured";
   const safetyLevel = resolveSafetyLevel(config, site);
-  return `✓ Jira · ${site.name} (${safetyLevel})`;
+  const authMethod = site.oauth ? "oauth" : "pat";
+  return `✓ Jira · ${site.name} (${safetyLevel}, ${authMethod})`;
 }
 
 /** Publish/refresh the footer status label for the active site. */
@@ -40,6 +42,7 @@ export function publishConnectionCard(pi: ExtensionAPI, config: JiraConfig, site
     site: site?.name,
     url: site?.url,
     email: site?.email,
+    authMethod: site ? (site.oauth ? "oauth" : "pat") : undefined,
     safetyLevel: site ? resolveSafetyLevel(config, site) : undefined,
     configPath: config.configPath,
   });
@@ -54,7 +57,8 @@ export function registerConnectionCardRenderer(pi: ExtensionAPI): void {
       box.addChild(new Text(`Jira: not configured${data ? ` (see ${data.configPath})` : ""}`));
       return box;
     }
-    box.addChild(new Text(`Jira · ${data.site ?? "?"} · ${data.email ?? "?"} · safetyLevel=${data.safetyLevel ?? "?"}`));
+    const identity = data.email ?? (data.authMethod === "oauth" ? "OAuth 2.0 (3LO)" : "?");
+    box.addChild(new Text(`Jira · ${data.site ?? "?"} · ${identity} · safetyLevel=${data.safetyLevel ?? "?"}`));
     box.addChild(new Text(data.url ?? ""));
     return box;
   });

@@ -34,15 +34,19 @@ export async function runDoctor(params: Params): Promise<ToolResult> {
     );
   }
 
-  const client = createJiraClient(site);
-  const me = await client.get("/myself");
-  return textResult(`Connected to ${site.url} as ${me.displayName} <${me.emailAddress ?? "no email on profile"}>.`, {
-    configured: true,
-    mock: false,
-    site: site.name,
-    accountId: me.accountId,
-    displayName: me.displayName,
-  });
+  try {
+    const client = await createJiraClient(site);
+    const me = await client.get("/myself");
+    return textResult(`Connected to ${site.url} as ${me.displayName} <${me.emailAddress ?? "no email on profile"}>.`, {
+      configured: true,
+      mock: false,
+      site: site.name,
+      accountId: me.accountId,
+      displayName: me.displayName,
+    });
+  } catch (error) {
+    return errorResult((error as Error).message);
+  }
 }
 
 export function createDoctorTool(): ToolDefinition<any, any, any> {

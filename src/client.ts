@@ -1,5 +1,6 @@
 import { buildBasicAuthHeader } from "./auth.ts";
 import { getProxyDispatcher } from "./proxy.ts";
+import { ATLASSIAN_API_BASE, OAuthTokenManager, type OAuthFetchLike } from "./oauth.ts";
 import type { JiraSiteConfig } from "./config.ts";
 
 export class JiraApiError extends Error {
@@ -72,7 +73,7 @@ function messageForStatus(status: number, statusText: string, body: unknown): st
   const suffix = detail ? ` ${detail}` : "";
   switch (status) {
     case 401:
-      return `Jira authentication failed (401). Check the site email/apiToken in the config file.${suffix}`;
+      return `Jira authentication failed (401). Check the site credentials (PAT email/apiToken or OAuth token) in the config file.${suffix}`;
     case 403:
       return `Jira denied the request (403 Forbidden). The account may lack permission for this operation.${suffix}`;
     case 404:
@@ -115,21 +116,40 @@ interface ClientOptions {
 
 /**
  * Create a minimal fetch-based Jira Cloud REST API v3 client for one site.
+ *
+ * PAT sites call `site.url` with Basic auth. OAuth sites call the Atlassian
+ * API gateway (`api.atlassian.com/ex/jira/<cloudId>`) with Bearer auth and
+ * transparently refresh expired access tokens.
  */
-export function createJiraClient(
+export async function createJiraClient(
   site: JiraSiteConfig,
   { fetchImpl = fetch as unknown as FetchLike, dispatcher = getProxyDispatcher(), apiBase = "/rest/api/3" }: ClientOptions = {},
-): JiraClient {
-  const baseUrl = `${stripTrailingSlashes(site.url)}${apiBase.startsWith("/") ? apiBase : `/${apiBase}`}`;
-  const authHeader = buildBasicAuthHeader(site.email, site.apiToken);
+): Promise<JiraClient> {
+  const apiPath = apiBase.startsWith("/") ? apiBase : `/${apiBase}`;
+  let baseUrl: string;
+  let authProvider: () => Promise<string>;
+  let oauthManager: OAuthTokenManager | undefined;
+
+  if (site.oauth) {
+    const manager = new OAuthTokenManager(site, fetchImpl as unknown as OAuthFetchLike);
+    oauthManager = manager;
+    const cloudId = await manager.ensureCloudId();
+    baseUrl = `${ATLASSIAN_API_BASE}/${encodeURIComponent(cloudId)}${apiPath}`;
+    authProvider = async () => `Bearer ${await manager.getAccessToken()}`;
+  } else {
+    baseUrl = `${stripTrailingSlashes(site.url)}${apiPath}`;
+    const authHeader = buildBasicAuthHeader(site.email, site.apiToken);
+    authProvider = async () => authHeader;
+  }
 
   async function requestOnce(url: string, method: string, body: unknown, signal?: AbortSignal): Promise<ResponseLike> {
+    const authorization = await authProvider();
     return fetchImpl(url, {
       method,
       signal,
       ...(dispatcher ? { dispatcher } : {}),
       headers: {
-        Authorization: authHeader,
+        Authorization: authorization,
         Accept: "application/json",
         ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
       },
@@ -139,9 +159,16 @@ export function createJiraClient(
 
   async function request(method: string, path: string, { query, body, signal }: RequestOptions = {}): Promise<any> {
     const url = `${baseUrl}${path}${buildQueryString(query)}`;
+    let authRetried = false;
 
     for (let attempt = 0; ; attempt++) {
       const response = await requestOnce(url, method, body, signal);
+
+      if (response.status === 401 && oauthManager && !authRetried) {
+        authRetried = true;
+        await oauthManager.refresh();
+        continue;
+      }
 
       if (response.status === RETRYABLE_STATUS && attempt < MAX_RETRIES) {
         await new Promise((resolve) => setTimeout(resolve, resolveRetryAfterSeconds(response) * 1000));
